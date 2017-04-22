@@ -1,0 +1,122 @@
+---
+title: "Peer-graded Assignment: Prediction Assignment Writeup"
+author: "MarkF"
+date: "April 16, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+#Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+Apply your machine learning algorithm to the 20 test cases available in the test data above and submit your predictions in appropriate format to the Course Project Prediction Quiz for automated grading.
+
+
+#Loading Data
+
+The data saved on the local harddisk and was loaded into R along with severla packages required for machine learning.
+```{r}
+library(caret)
+library(rattle)
+library(rpart)
+library(e1071) 
+training <- read.csv(("C:/Users/markk/Desktop/Coursera/Data Science (John Hopkins)/Practical Machine Learning/pml-training.csv"))
+predict  <- read.csv(("C:/Users/markk/Desktop/Coursera/Data Science (John Hopkins)/Practical Machine Learning/pml-testing.csv"))
+```
+  
+#Exploring and cleaning the data
+The training and testing data sets both have 160 variables each.
+
+The first 7 columns have no predictive relation to the classe value. These header columns are removed.
+
+In the traing set there are many columns with virtually all missing values. There are also some elements that have "#DIV/0!". All these values were replaced by "NA".
+
+Columns that were 95% or more NA were removed.
+
+Columns with Zero or next to zero variance were also removed. In this situation there were no columns with zero or next to zero variance.
+
+The end result of the cleaning step was that only 53 columns remained in the data set
+
+In this data set classe is the value that we need to predict from the other values.
+
+```{r}
+# Removing irrelevent columns
+training_1<- training[-c(1:7)]
+predict_1<-predict[-c(1:7)]
+
+# Changing blank columns and "#DIV/0!" to NA
+training_1[training_1==""] <- NA
+training_1[training_1=="#DIV/0!"] <- NA
+
+#Removing those columns that are 95% or more NA
+mostlyNA    <- colSums(is.na(training_1))/nrow(training_1)>=0.95
+training_1 <- training_1[, !mostlyNA]
+predict_1 <-predict_1[, !mostlyNA]
+
+#Remving those columns that have a zero or near Zero variance
+remove<-nearZeroVar(training_1, freqCut = 95/5, uniqueCut = 10, saveMetrics = FALSE, names = FALSE, foreach = FALSE, allowParallel = FALSE)
+
+inTrain  <- createDataPartition(training_1$classe, p=0.7, list=FALSE)
+TrainSet_1 <- training_1[inTrain, ]
+TestSet_1  <- training_1[-inTrain, ]
+PredictSet_1 <-predict_1
+```
+
+
+Three different machine learning algorithms will be picked and evaluated against each other. The algorithm with the best accuracy will be used to predict the results for the set of 20. The problem is a multi class classification problem so the algorithms best suited to this kind of problem will be chosen. These algorithms are:
+
+1) Decision Trees
+2) Support Vector Machines
+3) Radom Forest
+
+During training no cross validation was done initially. This is to save time. If the predictions of the algorithms on the out of sample test set are bad then further steps will be taken to improve the training step.
+
+The first model we will use is the Decision Tree model.
+```{r}
+set.seed(10)
+fitRpart_1 <- train(classe~., data = TrainSet_1, method="rpart",trControl=trainControl(method="none"),tuneGrid=data.frame(cp=0.01))
+predict_1 <- predict(fitRpart_1, newdata=TestSet_1)
+confMat_1<-confusionMatrix(predict_1,TestSet_1$classe)
+confMat_1
+```
+The out of sample accuracy of this model on the test data set is'r confMatDecTree_1$overall[1]'
+
+The second model we will use is the Support Vector Machine Model.
+```{r}
+set.seed(10)
+fitRpart_2 <- svm(classe ~., data = TrainSet_1)
+predict_2 <- predict(fitRpart_2, newdata=TestSet_1)
+confMat_2<-confusionMatrix(predict_2,TestSet_1$classe)
+confMat_2
+```
+
+The out of sample accuracy of this model on the test data set is'r confMatDecTree_2$overall[1]'
+
+The third model we will use is the Random Forest model.
+```{r}
+set.seed(10)
+fitRpart_3 <- train(classe~., data = TrainSet_1, method="rf",prox=TRUE,trControl=trainControl(method="none"),tuneGrid=data.frame(mtry=1))
+predict_3 <- predict(fitRpart_3, newdata=TestSet_1)
+confMat_3<-confusionMatrix(predict_3,TestSet_1$classe)
+confMat_3
+```
+
+The out of sample accuracy of this model on the test data set is'r confMat_3$overall[1]'
+
+From the results we can see that the Random Forest model produces the best results. We will use this model to predict the 20.
+
+```{r}
+set.seed(10)
+predict_4 <- predict(fitRpart_3, newdata=PredictSet_1)
+predict_4
+
+```
+
+
+
